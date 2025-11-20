@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>M5STICK ODDBALL / IMU VISUALIZER</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Helvetica Neue', 'Arial', sans-serif;
+      background: #0a0a0a;
+      color: #e0e0e0;
+      overflow: hidden;
+      font-weight: 300;
+      letter-spacing: 0.05em;
+    }
+    
+    #container {
+      display: flex;
+      height: 100vh;
+      padding: 0;
+      gap: 0;
+    }
+    
+    #left-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      background: #1a1a1a;
+      border-right: 1px solid #333;
+    }
+    
+    #right-panel {
+      flex: 1.5;
+      background: #0f0f0f;
+      position: relative;
+    }
+    
+    .module {
+      background: #2a2a2a;
+      border: 1px solid #3a3a3a;
+      position: relative;
+      padding: 30px 25px;
+    }
+    
+    /* モジュラーシンセ風のネジ穴 */
+    .module::before,
+    .module::after {
+      content: '';
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #1a1a1a;
+      border: 1px solid #4a4a4a;
+    }
+    
+    .module::before {
+      top: 10px;
+      left: 10px;
+    }
+    
+    .module::after {
+      top: 10px;
+      right: 10px;
+    }
+    
+    .screw-bottom-left,
+    .screw-bottom-right {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #1a1a1a;
+      border: 1px solid #4a4a4a;
+    }
+    
+    .screw-bottom-left {
+      bottom: 10px;
+      left: 10px;
+    }
+    
+    .screw-bottom-right {
+      bottom: 10px;
+      right: 10px;
+    }
+    
+    h1 {
+      font-size: 18px;
+      font-weight: 400;
+      letter-spacing: 0.2em;
+      margin-bottom: 8px;
+      color: #ffffff;
+      text-transform: uppercase;
+    }
+    
+    h2 {
+      font-size: 12px;
+      font-weight: 300;
+      letter-spacing: 0.15em;
+      margin-bottom: 20px;
+      color: #888;
+      text-transform: uppercase;
+    }
+    
+    .label {
+      font-size: 9px;
+      font-weight: 400;
+      letter-spacing: 0.1em;
+      color: #666;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    
+    #title-module {
+      flex: 0;
+      padding: 40px 25px 30px;
+      border-bottom: 1px solid #333;
+    }
+    
+    #connection-module {
+      flex: 0;
+      border-bottom: 1px solid #333;
+    }
+    
+    #sensor-module {
+      flex: 1;
+      overflow-y: auto;
+    }
+    
+    #connection-status {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 15px 20px;
+      background: #1a1a1a;
+      border: 1px solid #3a3a3a;
+      margin-bottom: 20px;
+      border-radius: 2px;
+    }
+    
+    #status-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ff3333;
+      box-shadow: 0 0 8px rgba(255, 51, 51, 0.6);
+      animation: pulse 2s infinite;
+    }
+    
+    #status-indicator.connected {
+      background: #06ffa5;
+      box-shadow: 0 0 8px rgba(6, 255, 165, 0.8);
+      animation: none;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    
+    #status-text {
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-weight: 400;
+    }
+    
+    button {
+      width: 100%;
+      padding: 12px;
+      font-size: 11px;
+      font-weight: 400;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      border: 1px solid #4a4a4a;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: 'Helvetica Neue', 'Arial', sans-serif;
+    }
+    
+    button:hover {
+      background: #2a2a2a;
+      border-color: #00d4ff;
+      color: #00d4ff;
+    }
+    
+    button:active {
+      background: #00d4ff;
+      color: #0a0a0a;
+    }
+    
+    button:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+      border-color: #3a3a3a;
+    }
+    
+    button:disabled:hover {
+      background: #1a1a1a;
+      border-color: #3a3a3a;
+      color: #e0e0e0;
+    }
+    
+    .sensor-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      margin-top: 25px;
+    }
+    
+    .sensor-box {
+      background: #1a1a1a;
+      border: 1px solid #3a3a3a;
+      padding: 15px;
+      position: relative;
+    }
+    
+    .sensor-label {
+      font-size: 9px;
+      color: #666;
+      margin-bottom: 10px;
+      font-weight: 400;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    
+    .sensor-value {
+      font-size: 28px;
+      font-weight: 200;
+      font-family: 'Courier New', monospace;
+      letter-spacing: -0.02em;
+    }
+    
+    .axis-x { color: #ff6b35; }
+    .axis-y { color: #00d4ff; }
+    .axis-z { color: #9d4edd; }
+    
+    /* LED indicators */
+    .led-strip {
+      display: flex;
+      gap: 8px;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #333;
+    }
+    
+    .led {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #2a2a2a;
+      border: 1px solid #3a3a3a;
+    }
+    
+    .led.active-x { 
+      background: #ff6b35; 
+      box-shadow: 0 0 10px rgba(255, 107, 53, 0.8);
+    }
+    
+    .led.active-y { 
+      background: #00d4ff; 
+      box-shadow: 0 0 10px rgba(0, 212, 255, 0.8);
+    }
+    
+    .led.active-z { 
+      background: #9d4edd; 
+      box-shadow: 0 0 10px rgba(157, 78, 221, 0.8);
+    }
+    
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+    
+    #threejs-canvas {
+      width: 100%;
+      height: 100%;
+    }
+    
+    .info-footer {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      right: 20px;
+      text-align: center;
+      font-size: 10px;
+      color: #444;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+    
+    /* スクロールバーのスタイル */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: #1a1a1a;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: #3a3a3a;
+      border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4a4a4a;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="left-panel">
+      <div id="title-module" class="module">
+        <div class="screw-bottom-left"></div>
+        <div class="screw-bottom-right"></div>
+        <h1>M5STICK ODDBALL</h1>
+        <h2>IMU Visualizer / Step 1</h2>
+      </div>
+      
+      <div id="connection-module" class="module">
+        <div class="screw-bottom-left"></div>
+        <div class="screw-bottom-right"></div>
+        <div class="label">Connection</div>
+        <div id="connection-status">
+          <div id="status-indicator"></div>
+          <span id="status-text">Disconnected</span>
+        </div>
+        <button id="connect-btn">Connect BLE-MIDI</button>
+      </div>
+      
+      <div id="sensor-module" class="module">
+        <div class="screw-bottom-left"></div>
+        <div class="screw-bottom-right"></div>
+        <div class="label">Sensor Data Stream</div>
+        
+        <div class="sensor-grid">
+          <div class="sensor-box">
+            <div class="sensor-label">Accel X</div>
+            <div class="sensor-value axis-x" id="accel-x">0.00</div>
+          </div>
+          <div class="sensor-box">
+            <div class="sensor-label">Accel Y</div>
+            <div class="sensor-value axis-y" id="accel-y">0.00</div>
+          </div>
+          <div class="sensor-box">
+            <div class="sensor-label">Accel Z</div>
+            <div class="sensor-value axis-z" id="accel-z">0.00</div>
+          </div>
+          <div class="sensor-box">
+            <div class="sensor-label">Gyro X</div>
+            <div class="sensor-value axis-x" id="gyro-x">0</div>
+          </div>
+          <div class="sensor-box">
+            <div class="sensor-label">Gyro Y</div>
+            <div class="sensor-value axis-y" id="gyro-y">0</div>
+          </div>
+          <div class="sensor-box">
+            <div class="sensor-label">Gyro Z</div>
+            <div class="sensor-value axis-z" id="gyro-z">0</div>
+          </div>
+        </div>
+        
+        <div class="led-strip">
+          <div class="led" id="led-x1"></div>
+          <div class="led" id="led-x2"></div>
+          <div class="led" id="led-y1"></div>
+          <div class="led" id="led-y2"></div>
+          <div class="led" id="led-z1"></div>
+          <div class="led" id="led-z2"></div>
+        </div>
+      </div>
+    </div>
+    
+    <div id="right-panel">
+      <div id="canvas-container">
+        <canvas id="threejs-canvas"></canvas>
+      </div>
+      <div class="info-footer">
+        Modular Interface Design / Real-time 3D Visualization
+      </div>
+    </div>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // Global variables
+    let midiAccess = null;
+    let midiInput = null;
+    let scene, camera, renderer, controls;
+    let m5stickGroup;
+    let gridMesh;
+    let gridGeometry;
+    
+    // Sensor data
+    let sensorData = {
+      accelX: 0, accelY: 0, accelZ: 0,
+      gyroX: 0, gyroY: 0, gyroZ: 0
+    };
+    
+    // Orientation
+    let orientation = {
+      roll: 0,
+      pitch: 0,
+      yaw: 0
+    };
+    
+    let lastUpdateTime = Date.now();
+
+    // DOM elements
+    const connectBtn = document.getElementById('connect-btn');
+    const statusIndicator = document.getElementById('status-indicator');
+    const statusText = document.getElementById('status-text');
+
+    // Three.js initialization
+    function initThreeJS() {
+      const container = document.getElementById('canvas-container');
+      const canvas = document.getElementById('threejs-canvas');
+      
+      // Scene
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0a0a0a);
+      scene.fog = new THREE.Fog(0x0a0a0a, 10, 50);
+      
+      // Camera
+      camera = new THREE.PerspectiveCamera(
+        45,
+        container.clientWidth / container.clientHeight,
+        0.1,
+        1000
+      );
+      camera.position.set(0, 8, 15);
+      camera.lookAt(0, 0, 0);
+      
+      // Renderer
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      
+      // Lights
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+      scene.add(ambientLight);
+      
+      const keyLight = new THREE.DirectionalLight(0xffffff, 0.6);
+      keyLight.position.set(5, 10, 5);
+      scene.add(keyLight);
+      
+      const fillLight = new THREE.DirectionalLight(0x00d4ff, 0.2);
+      fillLight.position.set(-5, 5, -5);
+      scene.add(fillLight);
+      
+      const rimLight = new THREE.DirectionalLight(0xff6b35, 0.3);
+      rimLight.position.set(0, 5, -10);
+      scene.add(rimLight);
+      
+      // Create M5Stick
+      createM5Stick();
+      
+      // Create grid
+      createDistortionGrid();
+      
+      // Controls
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.minDistance = 5;
+      controls.maxDistance = 30;
+      
+      // Resize handler
+      window.addEventListener('resize', onWindowResize);
+      
+      // Start animation
+      animate();
+    }
+
+    function createM5Stick() {
+      m5stickGroup = new THREE.Group();
+      
+      // Body
+      const bodyGeometry = new THREE.BoxGeometry(1.5, 4, 1);
+      const bodyMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0xff6b35,
+        metalness: 0.3,
+        roughness: 0.4,
+        emissive: 0xff6b35,
+        emissiveIntensity: 0.1
+      });
+      const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+      m5stickGroup.add(body);
+      
+      // Screen
+      const screenGeometry = new THREE.BoxGeometry(1.3, 2.5, 0.05);
+      const screenMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x0a0a0a,
+        metalness: 0.8,
+        roughness: 0.2,
+        emissive: 0x00d4ff,
+        emissiveIntensity: 0.3
+      });
+      const screen = new THREE.Mesh(screenGeometry, screenMaterial);
+      screen.position.set(0, 0.5, 0.52);
+      m5stickGroup.add(screen);
+      
+      // Buttons
+      const buttonGeometry = new THREE.CylinderGeometry(0.15, 0.15, 0.2, 16);
+      const buttonMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x1a1a1a,
+        metalness: 0.6,
+        roughness: 0.3
+      });
+      
+      const buttonA = new THREE.Mesh(buttonGeometry, buttonMaterial);
+      buttonA.rotation.z = Math.PI / 2;
+      buttonA.position.set(-0.9, 0.5, 0);
+      m5stickGroup.add(buttonA);
+      
+      const buttonB = new THREE.Mesh(buttonGeometry, buttonMaterial);
+      buttonB.rotation.z = Math.PI / 2;
+      buttonB.position.set(0.9, 0.5, 0);
+      m5stickGroup.add(buttonB);
+      
+      // Power button
+      const powerButton = new THREE.Mesh(buttonGeometry, buttonMaterial);
+      powerButton.position.set(0, 2.15, 0);
+      m5stickGroup.add(powerButton);
+      
+      scene.add(m5stickGroup);
+    }
+
+    function createDistortionGrid() {
+      const gridSize = 20;
+      const divisions = 40;
+      
+      // Floor plane
+      const floorGeometry = new THREE.PlaneGeometry(gridSize * 1.2, gridSize * 1.2);
+      const floorMaterial = new THREE.MeshBasicMaterial({
+        color: 0x0f0f0f,
+        side: THREE.DoubleSide
+      });
+      const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.y = -3.1;
+      scene.add(floor);
+      
+      // Grid geometry for distortion
+      gridGeometry = new THREE.PlaneGeometry(
+        gridSize, gridSize, 
+        divisions, divisions
+      );
+      
+      const positionsArray = gridGeometry.attributes.position.array;
+      const originalPositions = new Float32Array(positionsArray);
+      gridGeometry.setAttribute(
+        'originalPosition', 
+        new THREE.BufferAttribute(originalPositions, 3)
+      );
+      
+      gridMesh = new THREE.Mesh(
+        gridGeometry,
+        new THREE.MeshBasicMaterial({ visible: false })
+      );
+      gridMesh.rotation.x = -Math.PI / 2;
+      gridMesh.position.y = -3;
+      scene.add(gridMesh);
+      
+      // Grid lines
+      const linesGroup = new THREE.Group();
+      linesGroup.userData.lines = [];
+      
+      const lineMaterials = [
+        new THREE.LineBasicMaterial({ color: 0x3a3a3a, transparent: true, opacity: 0.5 }),
+        new THREE.LineBasicMaterial({ color: 0x4a4a4a, transparent: true, opacity: 0.4 })
+      ];
+      
+      // Vertical lines
+      for (let i = 0; i <= divisions; i++) {
+        const points = [];
+        for (let j = 0; j <= divisions; j++) {
+          const x = (i / divisions - 0.5) * gridSize;
+          const z = (j / divisions - 0.5) * gridSize;
+          points.push(new THREE.Vector3(x, 0, z));
+        }
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const material = lineMaterials[i % 2];
+        const line = new THREE.Line(geometry, material);
+        line.rotation.x = -Math.PI / 2;
+        line.position.y = -2.99;
+        linesGroup.add(line);
+        linesGroup.userData.lines.push({ geometry, direction: 'vertical', index: i });
+      }
+      
+      // Horizontal lines
+      for (let j = 0; j <= divisions; j++) {
+        const points = [];
+        for (let i = 0; i <= divisions; i++) {
+          const x = (i / divisions - 0.5) * gridSize;
+          const z = (j / divisions - 0.5) * gridSize;
+          points.push(new THREE.Vector3(x, 0, z));
+        }
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const material = lineMaterials[j % 2];
+        const line = new THREE.Line(geometry, material);
+        line.rotation.x = -Math.PI / 2;
+        line.position.y = -2.99;
+        linesGroup.add(line);
+        linesGroup.userData.lines.push({ geometry, direction: 'horizontal', index: j });
+      }
+      
+      scene.add(linesGroup);
+      gridMesh.userData.linesGroup = linesGroup;
+    }
+
+    function updateGridDistortion() {
+      if (!gridMesh || !gridGeometry) return;
+      
+      const positions = gridGeometry.attributes.position;
+      const originalPositions = gridGeometry.attributes.originalPosition;
+      
+      const m5stickX = m5stickGroup.position.x;
+      const m5stickZ = m5stickGroup.position.z;
+      
+      const accelMagnitude = Math.sqrt(
+        sensorData.accelX ** 2 + 
+        sensorData.accelY ** 2 + 
+        sensorData.accelZ ** 2
+      );
+      const distortionStrength = Math.min(accelMagnitude * 1.0, 4.0);
+      
+      for (let i = 0; i < positions.count; i++) {
+        const origX = originalPositions.getX(i);
+        const origY = originalPositions.getY(i);
+        const origZ = originalPositions.getZ(i);
+        
+        const dx = origX - m5stickX;
+        const dz = origZ - m5stickZ;
+        const distance = Math.sqrt(dx * dx + dz * dz);
+        
+        const maxDistance = 10;
+        const influence = Math.max(0, 1 - distance / maxDistance);
+        const warpAmount = influence * influence * distortionStrength;
+        
+        const newY = origY - warpAmount;
+        positions.setXYZ(i, origX, newY, origZ);
+      }
+      
+      positions.needsUpdate = true;
+      gridGeometry.computeVertexNormals();
+      
+      // Update grid lines
+      const linesGroup = gridMesh.userData.linesGroup;
+      if (linesGroup && linesGroup.userData.lines) {
+        const gridSize = 20;
+        const divisions = 40;
+        
+        linesGroup.userData.lines.forEach(lineInfo => {
+          const { geometry, direction, index } = lineInfo;
+          const linePositions = geometry.attributes.position;
+          
+          for (let j = 0; j <= divisions; j++) {
+            let origX, origZ;
+            
+            if (direction === 'vertical') {
+              origX = (index / divisions - 0.5) * gridSize;
+              origZ = (j / divisions - 0.5) * gridSize;
+            } else {
+              origX = (j / divisions - 0.5) * gridSize;
+              origZ = (index / divisions - 0.5) * gridSize;
+            }
+            
+            const dx = origX - m5stickX;
+            const dz = origZ - m5stickZ;
+            const distance = Math.sqrt(dx * dx + dz * dz);
+            
+            const influence = Math.max(0, 1 - distance / 10);
+            const warpAmount = influence * influence * distortionStrength;
+            
+            linePositions.setXYZ(j, origX, warpAmount, origZ);
+          }
+          
+          linePositions.needsUpdate = true;
+        });
+      }
+    }
+
+    function onWindowResize() {
+      const container = document.getElementById('canvas-container');
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      
+      const now = Date.now();
+      const dt = (now - lastUpdateTime) / 1000;
+      lastUpdateTime = now;
+      
+      const gyroScale = 0.5;
+      orientation.roll += sensorData.gyroX * dt * (Math.PI / 180) * gyroScale;
+      orientation.pitch += sensorData.gyroY * dt * (Math.PI / 180) * gyroScale;
+      orientation.yaw += sensorData.gyroZ * dt * (Math.PI / 180) * gyroScale;
+      
+      if (m5stickGroup) {
+        m5stickGroup.rotation.x = orientation.pitch;
+        m5stickGroup.rotation.y = orientation.yaw;
+        m5stickGroup.rotation.z = orientation.roll;
+      }
+      
+      updateGridDistortion();
+      updateLEDs();
+      
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    // BLE-MIDI connection
+    async function connectBLEMIDI() {
+      try {
+        connectBtn.disabled = true;
+        connectBtn.textContent = 'Connecting...';
+        
+        midiAccess = await navigator.requestMIDIAccess({ sysex: false });
+        
+        let found = false;
+        for (let input of midiAccess.inputs.values()) {
+          if (input.name.includes('M5Stick') || input.name.includes('OddBall')) {
+            midiInput = input;
+            found = true;
+            break;
+          }
+        }
+        
+        if (!found) {
+          midiInput = midiAccess.inputs.values().next().value;
+        }
+        
+        if (midiInput) {
+          midiInput.onmidimessage = handleMIDIMessage;
+          updateConnectionStatus(true);
+          connectBtn.textContent = 'Connected';
+        } else {
+          throw new Error('No MIDI input device found');
+        }
+      } catch (error) {
+        console.error('BLE-MIDI connection error:', error);
+        alert('Connection failed: ' + error.message);
+        connectBtn.disabled = false;
+        connectBtn.textContent = 'Connect BLE-MIDI';
+      }
+    }
+
+    function handleMIDIMessage(event) {
+      const [status, cc, value] = event.data;
+      
+      if ((status & 0xF0) === 0xB0) {
+        handleControlChange(cc, value);
+      }
+    }
+
+    function handleControlChange(cc, value) {
+      switch(cc) {
+        case 20:
+          sensorData.accelX = ((value - 63.5) / 63.5) * 2.0;
+          updateSensorDisplay('accel-x', sensorData.accelX.toFixed(2));
+          break;
+        case 21:
+          sensorData.accelY = ((value - 63.5) / 63.5) * 2.0;
+          updateSensorDisplay('accel-y', sensorData.accelY.toFixed(2));
+          break;
+        case 22:
+          sensorData.accelZ = ((value - 63.5) / 63.5) * 2.0;
+          updateSensorDisplay('accel-z', sensorData.accelZ.toFixed(2));
+          break;
+        case 23:
+          sensorData.gyroX = ((value - 63.5) / 63.5) * 250;
+          updateSensorDisplay('gyro-x', Math.round(sensorData.gyroX));
+          break;
+        case 24:
+          sensorData.gyroY = ((value - 63.5) / 63.5) * 250;
+          updateSensorDisplay('gyro-y', Math.round(sensorData.gyroY));
+          break;
+        case 25:
+          sensorData.gyroZ = ((value - 63.5) / 63.5) * 250;
+          updateSensorDisplay('gyro-z', Math.round(sensorData.gyroZ));
+          break;
+      }
+    }
+
+    function updateSensorDisplay(elementId, value) {
+      document.getElementById(elementId).textContent = value;
+    }
+
+    function updateLEDs() {
+      const threshold = 0.5;
+      const gyroThreshold = 50;
+      
+      document.getElementById('led-x1').className = 'led' + 
+        (Math.abs(sensorData.accelX) > threshold ? ' active-x' : '');
+      document.getElementById('led-x2').className = 'led' + 
+        (Math.abs(sensorData.gyroX) > gyroThreshold ? ' active-x' : '');
+      document.getElementById('led-y1').className = 'led' + 
+        (Math.abs(sensorData.accelY) > threshold ? ' active-y' : '');
+      document.getElementById('led-y2').className = 'led' + 
+        (Math.abs(sensorData.gyroY) > gyroThreshold ? ' active-y' : '');
+      document.getElementById('led-z1').className = 'led' + 
+        (Math.abs(sensorData.accelZ) > threshold ? ' active-z' : '');
+      document.getElementById('led-z2').className = 'led' + 
+        (Math.abs(sensorData.gyroZ) > gyroThreshold ? ' active-z' : '');
+    }
+
+    function updateConnectionStatus(connected) {
+      if (connected) {
+        statusIndicator.classList.add('connected');
+        statusText.textContent = 'Connected';
+      } else {
+        statusIndicator.classList.remove('connected');
+        statusText.textContent = 'Disconnected';
+      }
+    }
+
+    // Event listeners
+    connectBtn.addEventListener('click', connectBLEMIDI);
+
+    // Initialize
+    initThreeJS();
+  </script>
+</body>
+</html>
